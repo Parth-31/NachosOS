@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.PriorityQueue;
+
 import nachos.machine.*;
 
 /**
@@ -29,7 +31,16 @@ public class Alarm {
 	 * should be run.
 	 */
 	public void timerInterrupt() {
-		KThread.currentThread().yield();
+		boolean intStatus = Machine.interrupt().disable(); //atomic operation
+
+		long start_time = Machine.timer().getTime();
+		while (!wait_queue.isEmpty() && start_time > wait_queue.peek().wake_time) //As long as queue isn't empty and the waiting period has not completed yet 
+			wait_queue.poll().thread.ready();
+
+		KThread.yield();
+
+		Machine.interrupt().restore(intStatus);
+
 	}
 
 	/**
@@ -45,9 +56,51 @@ public class Alarm {
 	 * @see nachos.machine.Timer#getTime()
 	 */
 	public void waitUntil(long x) {
-		// for now, cheat just to get something working (busy waiting is bad)
-		long wakeTime = Machine.timer().getTime() + x;
-		while (wakeTime > Machine.timer().getTime())
-			KThread.yield();
+		
+		boolean interruptStatus = Machine.interrupt().disable();
+		
+		System.out.println("Current time = " + Machine.timer().getTime());
+		
+		long wake_time = Machine.timer().getTime() + x; //calculate wake time
+		
+		System.out.println("Wait Until wake time = " + wake_time);
+		
+		wait_queue.add(new Pair(wake_time, KThread.currentThread()));
+		 
+		KThread.sleep();
+			
+		Machine.interrupt().restore(interruptStatus);
 	}
+
+	PriorityQueue<Pair> wait_queue = new PriorityQueue<Pair>();
+
+	class Pair implements Comparable<Pair> {
+		long wake_time;
+		KThread thread;
+
+		Pair(long _wakeTime, KThread _waitingThread) {
+			wake_time = _wakeTime;
+			thread = _waitingThread;
+		}
+
+		public int compareTo(Pair pair) {
+		if(wake_time < pair.wake_time)
+			return -1;
+		else if(wake_time > pair.wake_time)
+			return 1;
+		else return 0;
+			
+		}
+	}
+//This method is not mandatory to write. It can be used for testing purpose.	
+	public static void selfTest() 
+	{
+		Lib.debug(dbgThread, "Enter Alarm.selfTest");
+
+		System.out.println("------------------------------------------------------------------");
+		
+		System.out.println("Alarm.selfTest()");
+		
+	}
+	private static final char dbgThread = 'a';
 }

@@ -63,12 +63,12 @@ public class PriorityScheduler extends Scheduler {
 
 		Lib.assertTrue(priority >= priorityMinimum
 				&& priority <= priorityMaximum);
-/////////////////		
+		
 		ThreadState threadState = getThreadState(thread);
 		
 		if(priority != threadState.getPriority())
 			threadState.setPriority(priority);
-////////////////		
+	
 	}
 
 	public boolean increasePriority() {
@@ -151,15 +151,13 @@ public class PriorityScheduler extends Scheduler {
 
 		public KThread nextThread() {
 			Lib.assertTrue(Machine.interrupt().disabled());
-			// implement me
-///////////////			
+			// implement me		
 			if(waitQueue.isEmpty()){
 				return null;
 			}else{
 				acquire(waitQueue.poll().thread);
 				return lockingThread;
-			}
-///////////////			
+			}	
 		}
 
 		/**
@@ -169,9 +167,8 @@ public class PriorityScheduler extends Scheduler {
 		 * @return the next thread that <tt>nextThread()</tt> would return.
 		 */
 		protected ThreadState pickNextThread() {
-///////////////			
+			
 			return waitQueue.peek();
-///////////////
 		}
 
 		public void print() {
@@ -184,7 +181,7 @@ public class PriorityScheduler extends Scheduler {
 		 * threads to the owning thread.
 		 */
 		public boolean transferPriority;
-/////////////////		
+		
 		private java.util.PriorityQueue<ThreadState> waitQueue = new java.util.PriorityQueue<ThreadState>(8,new ThreadStateComparator<ThreadState>(this));
 //KThread locks PQueue and initially it is null.		
 		private KThread lockingThread = null;	
@@ -210,7 +207,7 @@ public class PriorityScheduler extends Scheduler {
 			private nachos.threads.PriorityScheduler.PriorityQueue priorityQueue;
 		}
 	}
-/////////////////	
+	
 		
 
 	/**
@@ -233,14 +230,14 @@ public class PriorityScheduler extends Scheduler {
 			effectivePriority = priorityDefault;
 			setPriority(priorityDefault);
 		}
-//////////////////		
+		
 		private void release(PriorityQueue priorityQueue){
 			if(acquired.remove(priorityQueue)){
 				priorityQueue.lockingThread = null;
 				updateEffectivePriority();
 			}
 		}
-/////////////////
+
 		/**
 		 * Return the priority of the associated thread.
 		 * 
@@ -257,9 +254,9 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public int getEffectivePriority() {
 			// implement me
-/////////////////			
+			
 			return effectivePriority;
-/////////////////
+
 		}
 
 		/**
@@ -274,7 +271,7 @@ public class PriorityScheduler extends Scheduler {
 		}
 		
 		protected void updateEffectivePriority() {
-///////////////	
+	
 			for (PriorityQueue pq : waiting.keySet())
 				pq.waitQueue.remove(this);
 			
@@ -309,7 +306,7 @@ public class PriorityScheduler extends Scheduler {
 				}
 			}
 		}
-///////////////
+
 		/**
 		 * Called when <tt>waitForAccess(thread)</tt> (where <tt>thread</tt> is
 		 * the associated thread) is invoked on the specified priority queue.
@@ -324,7 +321,7 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
 			// implement me
-//////////////
+
 			if (!waiting.containsKey(waitQueue)) {
 				//Unlock this wait queue, if THIS holds it
 				release(waitQueue);
@@ -339,7 +336,7 @@ public class PriorityScheduler extends Scheduler {
 					getThreadState(waitQueue.lockingThread).updateEffectivePriority();
 				}
 			}
-//////////////			
+			
 		}
 
 		/**
@@ -354,7 +351,7 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public void acquire(PriorityQueue waitQueue) {
 			// implement me
-///////////////			
+		
 			//Unlock the current locking thread
 			if (waitQueue.lockingThread != null) {
 				getThreadState(waitQueue.lockingThread).release(waitQueue);
@@ -379,13 +376,58 @@ public class PriorityScheduler extends Scheduler {
 		/** The priority of the associated thread. */
 		protected int priority;
 		
-protected int effectivePriority;
+		protected int effectivePriority;
 		
 		/** A set of all the PriorityQueues this ThreadState has acquired */
 		private HashSet<nachos.threads.PriorityScheduler.PriorityQueue> acquired = new HashSet<nachos.threads.PriorityScheduler.PriorityQueue>();
 		
 		/** A map of all the PriorityQueues this ThreadState is waiting on mapped to the time they were waiting on them*/
 		HashMap<nachos.threads.PriorityScheduler.PriorityQueue,Long> waiting = new HashMap<nachos.threads.PriorityScheduler.PriorityQueue,Long>();
-////////////////	
+	
 	}
+	/*
+	public static void selfTest() {
+		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
+		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
+		
+		System.out.println("------------------------------------------------------------------");
+		
+		boolean status = Machine.interrupt().disable();
+		
+		tq1.waitForAccess(kt_1);
+		tq2.waitForAccess(kt_2);
+		tq3.waitForAccess(kt_3);
+		
+		tq1.acquire(kt_2);
+		tq2.acquire(kt_3);
+		tq3.acquire(kt_4);
+		
+		ThreadedKernel.scheduler.setPriority(kt_1, 6);
+		System.out.println("KT4: " + ThreadedKernel.scheduler.getPriority(kt_4));
+		
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==6);
+		
+		KThread kt_5 = new KThread();
+		
+		ThreadedKernel.scheduler.setPriority(kt_5, 7);
+		System.out.println("KT5: " + ThreadedKernel.scheduler.getPriority(kt_5));
+		
+		tq1.waitForAccess(kt_5);
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
+		
+		tq1.nextThread();
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
+		
+		System.out.println("KT1: " + ThreadedKernel.scheduler.getPriority(kt_1));
+		System.out.println("KT2: " + ThreadedKernel.scheduler.getPriority(kt_2));
+		System.out.println("KT3: " + ThreadedKernel.scheduler.getPriority(kt_3));
+		System.out.println("KT4: " + ThreadedKernel.scheduler.getPriority(kt_4));
+		
+		
+		Machine.interrupt().restore(status);
+	}*/
 }
+
