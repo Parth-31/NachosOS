@@ -13,7 +13,15 @@ public class Communicator {
 	/**
 	 * Allocate a new communicator.
 	 */
-	public Communicator() {
+
+	public Communicator() 
+	{
+		lock = new Lock();
+		speaker = new Condition2Queue(lock);
+		listener = new Condition2Queue(lock);
+		transfer = new Condition2Queue(lock);
+		data = 0;
+		flag=false;
 	}
 
 	/**
@@ -26,7 +34,26 @@ public class Communicator {
 	 * 
 	 * @param word the integer to transfer.
 	 */
-	public void speak(int word) {
+
+
+	public void speak(int word) 
+	{
+		lock.acquire();
+		if (listener.empty() || flag) //while word is in use
+			speaker.sleep(); //put this speaker in send queue
+
+		flag = true; //shared word in use
+		data = word; //transfer word
+		listener.wake();
+		transfer.sleep();
+		flag = false;
+		if (!speaker.empty() && !listener.empty()) 
+		{
+			flag = true;
+			speaker.wake();
+		}
+		lock.release();
+
 	}
 
 	/**
@@ -35,7 +62,63 @@ public class Communicator {
 	 * 
 	 * @return the integer transferred.
 	 */
-	public int listen() {
-		return 0;
+	public int listen() 
+	{
+		lock.acquire();
+		if (!flag && !speaker.empty()) 
+		{
+			flag = true;
+			speaker.wake();
+		}
+		listener.sleep(); //put listener in queue
+		int msg = data;
+		transfer.wake();
+		lock.release();
+		return (msg);
+	}
+
+	/**
+	 * Tests whether this module is working.
+	 */
+	public static void selfTest() 
+	{
+		System.out.println("------------------------------------------------------------------");
+
+		System.out.println("Communicator Self Test");
+
+
+	}
+
+	int data;
+	boolean flag;
+
+	Lock lock;
+	Condition2Queue speaker, listener, transfer;
+
+	class Condition2Queue {
+		Condition2 cond;
+		int count;
+
+		Condition2Queue(Lock lock) {
+			count = 0;
+			cond = new Condition2(lock);
+		}
+
+		boolean empty() {
+			return (count == 0);
+		}
+
+		void sleep() {
+			count++;
+			cond.sleep();
+		}
+
+		void wake() {
+			count--;
+			cond.wake();
+		}
+
+
+
 	}
 }
