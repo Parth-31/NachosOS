@@ -92,7 +92,7 @@ public class Alarm {
 			
 		}
 	}
-//This method is not mandatory to write. It can be used for testing purpose.	
+	
 	public static void selfTest() 
 	{
 		Lib.debug(dbgThread, "Enter Alarm.selfTest");
