@@ -54,13 +54,19 @@ public class KThread {
 	 * create an idle thread as well.
 	 */
 	public KThread() {
+
+		boolean intStatus = Machine.interrupt().disable();
+
+		waitingQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+		waitingQueue.acquire(this);
+
+		Machine.interrupt().restore(intStatus);
+
 		if (currentThread != null) {
 			tcb = new TCB();
-		}
-		else {
+		} else {
 			readyQueue = ThreadedKernel.scheduler.newThreadQueue(false);
 			readyQueue.acquire(this);
-
 			currentThread = this;
 			tcb = TCB.currentTCB();
 			name = "main";
@@ -203,6 +209,10 @@ public class KThread {
 
 		currentThread.status = statusFinished;
 
+		KThread now;
+		while ((now = currentThread.waitingQueue.nextThread()) != null)
+			now.ready();
+
 		sleep();
 	}
 
@@ -282,9 +292,23 @@ public class KThread {
 	 */
 	public void join() {
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
-
+    	
 		Lib.assertTrue(this != currentThread);
+		boolean intStatus = Machine.interrupt().disable();
 
+        if(status != statusFinished) // if joinee is not finished yet 
+        {  
+        	/*if (status == statusNew)
+				ready();*/
+        	
+            waitingQueue.waitForAccess(this.currentThread());
+			sleep();
+        }
+        Machine.interrupt().restore(intStatus);
+        
+		//int status = this.status;
+		//System.out.println("Status : " + (status == statusFinished ? "Finished" : "Unknown"));
+		
 	}
 
 	/**
@@ -398,23 +422,38 @@ public class KThread {
 
 		public void run() {
 			for (int i = 0; i < 5; i++) {
-				System.out.println("*** thread " + which + " looped " + i
-						+ " times");
-				currentThread.yield();
+				System.out.println("*** thread " + which + " looped " + i + " times");
+				KThread.yield();
 			}
 		}
 
 		private int which;
 	}
 
+
+/**
+     * Wakes threads that have joined the current thread.
+     */
+    public void wakeJoiners() {
+        boolean intStatus = Machine.interrupt().disable();
+        KThread thread = null;
+        do {
+            thread = waitingQueue.nextThread();
+            if(thread != null) {
+                thread.ready();
+            }
+        } while(thread != null);
+        Machine.interrupt().restore(intStatus);
+    }
 	/**
 	 * Tests whether this module is working.
 	 */
 	public static void selfTest() {
 		Lib.debug(dbgThread, "Enter KThread.selfTest");
-
-		new KThread(new PingTest(1)).setName("forked thread").fork();
-		new PingTest(0).run();
+		System.out.println("------------------------------------------------------------------");
+		
+		System.out.println("KThread.selfTest()");
+				
 	}
 
 	private static final char dbgThread = 't';
@@ -449,6 +488,7 @@ public class KThread {
 
 	private TCB tcb;
 
+    private ThreadQueue waitingQueue = null;
 	/**
 	 * Unique identifer for this thread. Used to deterministically compare
 	 * threads.
